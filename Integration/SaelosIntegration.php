@@ -5,11 +5,12 @@ namespace MauticPlugin\MauticSaelosBundle\Integration;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Exception\ApiErrorException;
 use MauticPlugin\MauticSaelosBundle\Api\SaelosApi;
+use MauticPlugin\MauticSaelosBundle\Contracts\CanPullContacts;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use MauticPlugin\MauticCrmBundle\Integration\CrmAbstractIntegration;
 
-class SaelosIntegration extends CrmAbstractIntegration
+class SaelosIntegration extends CrmAbstractIntegration implements CanPullContacts
 {
     private $objects = [
         'person',
@@ -541,5 +542,73 @@ class SaelosIntegration extends CrmAbstractIntegration
                 ]
             );
         }
+    }
+
+    public function pullContacts($params = []): array
+    {
+        $query    = $this->getFetchQuery($params);
+        $executed = [
+            0 => 0,
+            1 => 0,
+        ];
+
+        try {
+            if ($this->isAuthorized()) {
+                $processed = 0;
+                $retry     = 0;
+                $total     = 0;
+
+                while (true) {
+                    $results = $this->getApiHelper()->getLeads($query);
+
+                    if (!isset($this->progressBar)) {
+                        $total = $results['meta']['total'];
+                        $this->setProgressBar(new ProgressBar($params['output'], $total), 'person');
+                    }
+
+                    $results['data'] = $results['data'] ?? [];
+
+                    list($justUpdated, $justCreated) = $this->amendLeadDataBeforeMauticPopulate($results['data'], 'person');
+
+                    $executed[0] += $justUpdated;
+                    $executed[1] += $justCreated;
+                    $processed += count($results['data']);
+
+                    if (is_array($results) && array_key_exists('links', $results) && isset($results['links']['next'])) {
+                        parse_str(parse_url($results['links']['next'], PHP_URL_QUERY), $linkParams);
+                        $query['page'] = $linkParams['page'];
+                    } else {
+                        if ($processed < $total) {
+                            // Something has gone wrong so try a few more times before giving up
+                            if ($retry <= 5) {
+                                $this->logger->debug("SAELOS: Processed less than total but didn't get a nextRecordsUrl in the response for getLeads (person): ".var_export($results, true));
+
+                                usleep(500);
+                                ++$retry;
+
+                                continue;
+                            } else {
+                                // Throw an exception cause something isn't right
+                                throw new ApiErrorException("Expected to process $total but only processed $processed: ".var_export($results, true));
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            $this->logIntegrationError($e);
+        }
+
+        $this->finishProgressBar();
+
+        return $executed;
+    }
+
+    public function shouldPullContacts(): bool
+    {
+        $config = $this->settings->getFeatureSettings();
+
+        return in_array('person', $config['objects']);
     }
 }

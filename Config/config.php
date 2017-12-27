@@ -15,9 +15,10 @@ return [
         ],
         'command' => [
             'mautic.integration.command.sync' => [
-                'class' => \Mautic\PluginBundle\Command\SyncIntegrations::class,
+                'class' => \MauticPlugin\MauticSaelosBundle\Command\SyncIntegrations::class,
                 'arguments' => [
-
+                    'translator',
+                    'mautic.helper.integration',
                 ]
             ],
         ],
