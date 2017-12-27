@@ -13,6 +13,14 @@ return [
                 ],
             ],
         ],
+        'command' => [
+            'mautic.integration.command.sync' => [
+                'class' => \Mautic\PluginBundle\Command\SyncIntegrations::class,
+                'arguments' => [
+
+                ]
+            ],
+        ],
         'events' => [
             // Register any event listeners
         ],
