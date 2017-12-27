@@ -1,0 +1,14 @@
+{
+  "name": "treblig/mautic-saelos-bundle",
+  "type": "mautic-plugin",
+  "authors": [
+    {
+      "name": "Don Gilbert",
+      "email": "don.gilbert@mautic.com",
+      "role": "Engineer"
+    }
+  ],
+  "require": {
+    "mautic/composer-plugin": "^1.0"
+  }
+}
