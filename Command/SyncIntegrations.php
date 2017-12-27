@@ -48,6 +48,7 @@ class SyncIntegrations extends Command
      * SyncIntegrations constructor.
      *
      * @param TranslatorInterface $translator
+     * @param IntegrationHelper $integrationHelper
      */
     public function __construct(TranslatorInterface $translator, IntegrationHelper $integrationHelper)
     {
