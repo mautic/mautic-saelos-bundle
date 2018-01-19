@@ -786,7 +786,6 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         $totalCreated++;
                     } catch (ApiErrorException $e) {
                         $totalErrors++;
-                        var_dump($e);die;
                         continue;
                     } finally {
                         $totalCount--;
@@ -975,9 +974,14 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
                         foreach ($fieldsToUpdate as $integrationField => $mauticField) {
                             if (strpos($integrationField, 'saelosCustom_') === 0) {
-                                $updateData['custom_fields'][substr($integrationField, strlen('saelosCustom_'))] = $update[$mauticField];
+                                $fieldId = (int) substr($integrationField, strlen('saelosCustom_'));
+
+                                $createData['custom_fields'][] = [
+                                    'custom_field_id' => $fieldId,
+                                    'value' => $update[$mauticField],
+                                ];
                             } else {
-                                $updateData[$integrationField] = $update[$mauticField];
+                                $createData[$integrationField] = $update[$mauticField];
                             }
                         }
 
@@ -1019,7 +1023,12 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
                       foreach ($fieldsToCreate as $integrationField => $mauticField) {
                           if (strpos($integrationField, 'saelosCustom_') === 0) {
-                              $createData['custom_fields'][substr($integrationField, strlen('saelosCustom_'))] = $create[$mauticField];
+                              $fieldId = (int) substr($integrationField, strlen('saelosCustom_'));
+
+                              $createData['custom_fields'][] = [
+                                  'custom_field_id' => $fieldId,
+                                  'value' => $create[$mauticField],
+                              ];
                           } else {
                               $createData[$integrationField] = $create[$mauticField];
                           }
