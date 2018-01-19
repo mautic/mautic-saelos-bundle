@@ -18,7 +18,13 @@ class SaelosApi
     protected $requestSettings = [
         'content_type'      => 'application/json',
         'encode_parameters' => 'json',
+        'return_raw'        => true,
     ];
+
+    /**
+     * @var int
+     */
+    private $requestCounter = 0;
 
     /**
      * SaelosApi constructor.
@@ -41,6 +47,8 @@ class SaelosApi
      */
     public function request($operation, $parameters = [], $method = 'GET')
     {
+        $this->requestCounter++;
+
         if (!empty($operation) && strpos($operation, '/') !== 0) {
             $operation = '/'.$operation;
         }
@@ -48,11 +56,19 @@ class SaelosApi
         $url      = $this->integration->getApiUrl().$operation;
         $response = $this->integration->makeRequest($url, $parameters, $method, $this->requestSettings);
 
-        if (isset($response['code']) && $response['code'] > 299) {
-            throw new ApiErrorException($response['message'], $response['code']);
+        if ($response->code > 299) {
+            throw new ApiErrorException($response->body, $response->code);
         }
 
-        return $response;
+        return $this->integration->parseCallbackResponse($response->body);
+    }
+
+    /**
+     * @return int
+     */
+    public function getRequestCounter(): int
+    {
+        return $this->requestCounter;
     }
 
     /**
@@ -67,48 +83,39 @@ class SaelosApi
         switch ($object) {
             case 'Lead':
             case 'person':
-                $object = 'people';
+                $url = 'contexts/Person';
                 break;
             case 'company':
-                $object = 'companies';
+                $url = 'contexts/Company';
                 break;
         }
 
-        $response = $this->request($object, [], 'GET');
+        $response = $this->request($url, [], 'GET');
 
-        if (!isset($response['data'])) {
+        if (!is_array($response)) {
             return [];
         }
 
-        $object       = $response['data'][0];
         $fields       = [];
         $fieldsToSkip = [
             'id',
             'deals',
             'company',
+            'activities',
+            'notes',
+            'people',
         ];
 
-        foreach ($object as $field => $value) {
+        foreach ($response as $field => $details) {
             if (in_array($field, $fieldsToSkip)) {
                 continue;
             }
 
-            if (is_array($value)) {
-                if ($field === 'custom_fields') {
-                    foreach ($value as $customField => $customValue) {
-                        $fields['saelosCustom_'.$customField] = [
-                            'label'    => $customField,
-                            'required' => false,
-                        ];
-                    }
+            $key = isset($details['is_custom']) && $details['is_custom'] === true ? 'saelosCustom_'.$details['field_id'] : $field;
 
-                    continue;
-                }
-            }
-
-            $fields[$field] = [
-                'label'    => $field,
-                'required' => false,
+            $fields[$key] = [
+                'label' => $details['label'],
+                'required' => $details['required'],
             ];
         }
 
@@ -125,5 +132,63 @@ class SaelosApi
     public function getLeads($query)
     {
         return $this->request('/people', $query);
+    }
+
+    /**
+     * @param $query
+     *
+     * @return mixed|string
+     *
+     * @throws ApiErrorException
+     */
+    public function getCompanies($query)
+    {
+        return $this->request('/companies', $query);
+    }
+
+    /**
+     * @param $data
+     *
+     * @return mixed|string
+     * @throws ApiErrorException
+     */
+    public function pushContact($data)
+    {
+        return $this->request('/people', $data, 'POST');
+    }
+
+    /**
+     * @param $data
+     * @param $id
+     *
+     * @return mixed|string
+     * @throws ApiErrorException
+     */
+    public function updateContact($data, $id)
+    {
+        return $this->request('/people/'.$id, $data, 'POST');
+    }
+
+    /**
+     * @param $data
+     *
+     * @return mixed|string
+     * @throws ApiErrorException
+     */
+    public function pushCompany($data)
+    {
+        return $this->request('/companies', $data, 'POST');
+    }
+
+    /**
+     * @param $data
+     * @param $id
+     *
+     * @return mixed|string
+     * @throws ApiErrorException
+     */
+    public function updateCompany($data, $id)
+    {
+        return $this->request('/companies/'.$id, $data, 'POST');
     }
 }

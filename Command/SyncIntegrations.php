@@ -81,7 +81,7 @@ class SyncIntegrations extends Command
             )
             ->addOption(
                 'end-date',
-                'e',
+                'c',
                 InputOption::VALUE_OPTIONAL,
                 'The date to which changes will be synced. Defaults to NOW()',
                 'now'
@@ -111,7 +111,15 @@ class SyncIntegrations extends Command
                 'f',
                 InputOption::VALUE_NONE,
                 'Force execution even if another process is assumed running.'
-            );
+            )
+            ->addOption(
+                'objects',
+                'o',
+                InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL,
+                'Select the specific objects set in the integration to sync. Can only pass objects that have been set in the integration config.',
+                null
+            )
+        ;
 
         parent::configure();
     }
@@ -163,9 +171,8 @@ class SyncIntegrations extends Command
 
         if ($integrationObject instanceof CanPushContacts && $integrationObject->shouldPushContacts()) {
             $output->writeln('<info>'.$this->translator->trans('mautic.plugin.command.pushing.leads', ['%integration%' => $integration]).'</info>');
-            $ignored = $errored = 0;
 
-            list($justUpdated, $justCreated) = $integrationObject->pushContacts($params);
+            list($justUpdated, $justCreated, $errored, $ignored) = $integrationObject->pushContacts($params);
 
             $output->writeln('');
             $output->writeln(
@@ -184,9 +191,8 @@ class SyncIntegrations extends Command
 
         if ($integrationObject instanceof CanPushCompanies && $integrationObject->shouldPushCompanies()) {
             $output->writeln('<info>'.$this->translator->trans('mautic.plugin.command.pushing.companies', ['%integration%' => $integration]).'</info>');
-            $ignored = $errored = 0;
 
-            list($justUpdated, $justCreated) = $integrationObject->pushCompanies($params);
+            list($justUpdated, $justCreated, $errored, $ignored) = $integrationObject->pushCompanies($params);
 
             $output->writeln('');
             $output->writeln(
@@ -313,6 +319,7 @@ class SyncIntegrations extends Command
             'end'      => $endDate,
             'limit'    => $input->getOption('limit'),
             'fetchAll' => $input->getOption('fetch-all'),
+            'objects'  => $input->getOption('objects'),
             'output'   => $output,
         ];
     }

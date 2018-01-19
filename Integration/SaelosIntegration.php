@@ -2,15 +2,19 @@
 
 namespace MauticPlugin\MauticSaelosBundle\Integration;
 
+use Mautic\LeadBundle\Entity\Company;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Exception\ApiErrorException;
 use MauticPlugin\MauticSaelosBundle\Api\SaelosApi;
+use MauticPlugin\MauticSaelosBundle\Contracts\CanPullCompanies;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPullContacts;
+use MauticPlugin\MauticSaelosBundle\Contracts\CanPushCompanies;
+use MauticPlugin\MauticSaelosBundle\Contracts\CanPushContacts;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use MauticPlugin\MauticCrmBundle\Integration\CrmAbstractIntegration;
 
-class SaelosIntegration extends CrmAbstractIntegration implements CanPullContacts
+class SaelosIntegration extends CrmAbstractIntegration implements CanPullContacts, CanPullCompanies, CanPushContacts, CanPushCompanies
 {
     private $objects = [
         'person',
@@ -99,7 +103,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
      */
     public function getRefreshTokenKeys()
     {
-        return ['refresh_token', ''];
+        return ['refresh_token', 'expires_at'];
     }
 
     /**
@@ -178,7 +182,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     public function getFormSettings()
     {
         return [
-            'requires_callback'      => false,
+            'requires_callback'      => true,
             'requires_authorization' => true,
             'default_features'       => [],
             'enable_data_priority'   => $this->getDataPriority(),
@@ -205,7 +209,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     private function setProgressBar($progressBar, $object = '')
     {
         $this->progressBar = $progressBar;
-        $this->progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% ('.$object.')');
+        $this->progressBar->setFormat(' [%bar%] %current%/%max% %percent:3s%% ('.$object.')');
+        $this->progressBar->start();
     }
 
     /**
@@ -213,18 +218,21 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
      */
     private function advanceProgress()
     {
-        if (isset($this->progessBar)) {
+        if ($this->progressBar instanceof ProgressBar) {
             $this->progressBar->advance();
         }
     }
 
     /**
      * Instruct progress bar to finish.
+     * Unsets the progress bar for future imports.
      */
     private function finishProgressBar()
     {
-        if (isset($this->progressBar)) {
+        if ($this->progressBar instanceof ProgressBar) {
             $this->progressBar->finish();
+
+            $this->progressBar = null;
         }
     }
 
@@ -259,7 +267,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     {
         $settings['feature_settings']['objects']['company'] = 'company';
 
-        return ($this->isAuthorized()) ? $this->getAvailableLeadFields($settings) : [];
+        return ($this->isAuthorized()) ? $this->getAvailableLeadFields($settings)['company'] : [];
     }
 
     /**
@@ -315,16 +323,6 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                                     'label'    => ucfirst($details['label']),
                                     'required' => $details['required'],
                                 ];
-                            }
-                        }
-
-                        if (isset($saelosFields[$object]['email'])) {
-                            // Email is Required for this kind of integration
-                            $saelosFields[$object]['email']['required'] = true;
-                            $saelosFields[$object]['email']['type']     = 'string';
-
-                            if (!isset($saelosFields[$object]['email']['label'])) {
-                                $saelosFields[$object]['email']['label'] = 'Email';
                             }
                         }
                     }
@@ -417,12 +415,13 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     }
 
     /**
-     * @param $data
-     * @param $object
+     * @param array  $data
+     * @param string $object
+     * @oaram array  $params
      *
      * @return array|null
      */
-    public function amendLeadDataBeforeMauticPopulate($data, $object)
+    public function amendLeadDataBeforeMauticPopulate($data, $object, $params = [])
     {
         $updated               = 0;
         $created               = 0;
@@ -438,22 +437,37 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
             $entity = false;
 
             foreach ($record['custom_fields'] as $customField) {
-                $record['saelosCustom_'.$customField['alias']] = $customField['value'];
+                $record['saelosCustom_'.$customField['custom_field_id']] = $customField['value'];
             }
 
             unset($record['deals']);
             unset($record['activities']);
             unset($record['user']);
-            unset($record['customFields']);
+            unset($record['custom_fields']);
 
             switch ($object) {
                 case 'person':
+                    if (isset($record['company'])) {
+                        unset($record['company']['people']);
+                        unset($record['company']['deals']);
+                        unset($record['company']['activities']);
+                        unset($record['company']['user']);
+                        unset($record['company']['custom_fields']);
 
-                    unset($record['company']);
+                        $record['company'] = $this->getMauticCompany($record['company'], 'company')->getName();
+                    }
 
-                    $entity                = $this->getMauticLead($record, true, null, null, 'lead');
                     $mauticObjectReference = 'lead';
+                    $entity                = $this->getMauticLead($record, true, null, null, $mauticObjectReference);
                     $detachClass           = Lead::class;
+                    break;
+                case 'company':
+                    unset($record['people']);
+
+                    $mauticObjectReference = 'company';
+                    $entity                = $this->getMauticCompany($record, $mauticObjectReference);
+                    $detachClass           = Company::class;
+
                     break;
                 default:
                     $this->logIntegrationError(
@@ -568,7 +582,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
                     $results['data'] = $results['data'] ?? [];
 
-                    list($justUpdated, $justCreated) = $this->amendLeadDataBeforeMauticPopulate($results['data'], 'person');
+                    list($justUpdated, $justCreated) = $this->amendLeadDataBeforeMauticPopulate($results['data'], 'person', $params);
 
                     $executed[0] += $justUpdated;
                     $executed[1] += $justCreated;
@@ -605,10 +619,458 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
         return $executed;
     }
 
+    /**
+     * @return bool
+     */
     public function shouldPullContacts(): bool
     {
-        $config = $this->settings->getFeatureSettings();
+        if (!empty($this->commandParameters) && !empty($this->commandParameters['objects'])) {
+            $objects = $this->commandParameters['objects'];
+        } else {
+            $objects = $this->settings->getFeatureSettings()['objects'];
+        }
 
-        return in_array('person', $config['objects']);
+        $supportedFeatures = $this->settings->getSupportedFeatures() ?? [];
+
+        return in_array('person', $objects) && in_array('get_leads', $supportedFeatures);
+    }
+
+    /**
+     * @param array $params
+     *
+     * @return array
+     */
+    public function pushContacts($params = []): array
+    {
+        $config                  = $this->mergeConfigToFeatureSettings($params);
+        $integrationEntityRepo   = $this->getIntegrationEntityRepository();
+
+        $totalUpdated    = 0;
+        $totalCreated    = 0;
+        $totalErrors     = 0;
+
+        unset($config['leadFields']['mauticContactTimelineLink']);
+
+        //get company fields from Mautic that have been mapped
+        $mauticLeadFieldString = 'l.'.implode(', l.', $config['leadFields']);
+
+        $fieldKeys      = array_keys($config['leadFields']);
+        $fieldsToCreate = $this->prepareFieldsForSync($config['leadFields'], $fieldKeys, 'person');
+        $fieldsToUpdate = $this->getPriorityFieldsForIntegration($config, 'person', 'mautic_lead');
+
+        // Get a total number of companies to be updated and/or created for the progress counter
+        $totalToUpdate = $integrationEntityRepo->findLeadsToUpdate(
+            'Saelos',
+            'lead',
+            $mauticLeadFieldString,
+            false,
+            $params['start'],
+            $params['end'],
+            'person'
+        )['person'];
+
+        $totalToCreate = $integrationEntityRepo->findLeadsToCreate(
+            'Saelos',
+            $mauticLeadFieldString,
+            false,
+            $params['start'],
+            $params['end'],
+            'lead'
+        );
+
+        $totalCount = $totalToProcess = $totalToCreate + $totalToUpdate;
+
+        if (!isset($this->progressBar)) {
+            $this->setProgressBar(new ProgressBar($params['output'], $totalCount), 'lead');
+        }
+
+        while ($totalCount > 0) {
+            if ($totalToUpdate) {
+                $toUpdate = $integrationEntityRepo->findLeadsToUpdate(
+                    'Saelos',
+                    'lead',
+                    $mauticLeadFieldString,
+                    $params['limit'],
+                    $params['start'],
+                    $params['end'],
+                    'person'
+                );
+
+                foreach ($toUpdate as $update) {
+                    try {
+                        $updateData = [
+                            'custom_fields' => []
+                        ];
+
+                        foreach ($fieldsToUpdate as $integrationField => $mauticField) {
+                            // @TODO
+                            if ($mauticField === 'mauticContactTimelineLink') {
+                                continue;
+                            }
+
+                            if (strpos($integrationField, 'saelosCustom_') === 0) {
+                                $fieldId = (int) substr($integrationField, strlen('saelosCustom_'));
+
+                                $updateData['custom_fields'][] = [
+                                    'custom_field_id' => $fieldId,
+                                    'value' => $update[$mauticField],
+                                ];
+                            } else {
+                                $updateData[$integrationField] = $update[$mauticField];
+                            }
+                        }
+
+                        $updatedCompany = $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
+
+                        $this->createIntegrationEntity(
+                            'person',
+                            $updatedCompany['data']['id'],
+                            'lead',
+                            $update['internal_entity_id']
+                        );
+
+                        $totalUpdated++;
+                    } catch (ApiErrorException $e) {
+                        $totalErrors++;
+                        continue;
+                    } finally {
+                        $totalCount--;
+                        $this->advanceProgress();
+                    }
+                }
+            }
+
+            if ($totalToCreate) {
+                $toCreate = $integrationEntityRepo->findLeadsToCreate(
+                    'Saelos',
+                    $mauticLeadFieldString,
+                    $params['limit'],
+                    $params['start'],
+                    $params['end'],
+                    'lead'
+                );
+
+                foreach ($toCreate as $create) {
+                    try {
+                        $createData = [
+                            'custom_fields' => []
+                        ];
+
+                        foreach ($fieldsToCreate as $integrationField => $mauticField) {
+                            // @TODO
+                            if ($mauticField === 'mauticContactTimelineLink') {
+                                continue;
+                            }
+
+                            if (strpos($integrationField, 'saelosCustom_') === 0) {
+                                $fieldId = (int) substr($integrationField, strlen('saelosCustom_'));
+
+                                $createData['custom_fields'][] = [
+                                    'custom_field_id' => $fieldId,
+                                    'value' => $create[$mauticField],
+                                ];
+                            } else {
+                                $createData[$integrationField] = $create[$mauticField];
+                            }
+                        }
+
+                        $createdCompany = $this->getApiHelper()->pushContact($createData);
+
+                        $this->createIntegrationEntity(
+                            'person',
+                            $createdCompany['data']['id'],
+                            'lead',
+                            $create['internal_entity_id']
+                        );
+
+                        $totalCreated++;
+                    } catch (ApiErrorException $e) {
+                        $totalErrors++;
+                        var_dump($e);die;
+                        continue;
+                    } finally {
+                        $totalCount--;
+                        $this->advanceProgress();
+                    }
+                }
+            }
+        }
+
+        $this->finishProgressBar();
+
+        $this->logger->debug('SAELOS: '.$this->getApiHelper()->getRequestCounter().' API requests made for pushContacts');
+
+        // Assume that those not touched are ignored due to not having matching fields, duplicates, etc
+        $totalIgnored = $totalToProcess - ($totalUpdated + $totalCreated + $totalErrors);
+
+        if ($totalIgnored < 0) { //this could have been marked as deleted so it was not pushed
+            $totalIgnored = $totalIgnored * -1;
+        }
+
+        return [$totalUpdated, $totalCreated, $totalErrors, $totalIgnored];
+    }
+
+    /**
+     * @return bool
+     */
+    public function shouldPushContacts(): bool
+    {
+        if (!empty($this->commandParameters) && !empty($this->commandParameters['objects'])) {
+            $objects = $this->commandParameters['objects'];
+        } else {
+            $objects = $this->settings->getFeatureSettings()['objects'];
+        }
+
+        $supportedFeatures = $this->settings->getSupportedFeatures() ?? [];
+
+        return in_array('person', $objects) && in_array('push_leads', $supportedFeatures);
+    }
+
+    /**
+     * @param array $params
+     *
+     * @return array
+     */
+    public function pullCompanies($params = []): array
+    {
+        $query    = $this->getFetchQuery($params);
+        $executed = [
+            0 => 0,
+            1 => 0,
+        ];
+
+        try {
+            if ($this->isAuthorized()) {
+                $processed = 0;
+                $retry     = 0;
+                $total     = 0;
+
+                while (true) {
+                    $results = $this->getApiHelper()->getCompanies($query);
+
+                    if (!isset($this->progressBar)) {
+                        $total = $results['meta']['total'];
+                        $this->setProgressBar(new ProgressBar($params['output'], $total), 'company');
+                    }
+
+                    $results['data'] = $results['data'] ?? [];
+
+                    list($justUpdated, $justCreated) = $this->amendLeadDataBeforeMauticPopulate($results['data'], 'company', $params);
+
+                    $executed[0] += $justUpdated;
+                    $executed[1] += $justCreated;
+                    $processed += count($results['data']);
+
+                    if (is_array($results) && array_key_exists('links', $results) && isset($results['links']['next'])) {
+                        parse_str(parse_url($results['links']['next'], PHP_URL_QUERY), $linkParams);
+                        $query['page'] = $linkParams['page'];
+                    } else {
+                        if ($processed < $total) {
+                            // Something has gone wrong so try a few more times before giving up
+                            if ($retry <= 5) {
+                                $this->logger->debug("SAELOS: Processed less than total but didn't get a nextRecordsUrl in the response for getCompanies (company): ".var_export($results, true));
+
+                                usleep(500);
+                                ++$retry;
+
+                                continue;
+                            } else {
+                                // Throw an exception cause something isn't right
+                                throw new ApiErrorException("Expected to process $total but only processed $processed: ".var_export($results, true));
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            $this->logIntegrationError($e);
+        }
+
+        $this->finishProgressBar();
+
+        return $executed;
+    }
+
+    /**
+     * @return bool
+     */
+    public function shouldPullCompanies(): bool
+    {
+        if (!empty($this->commandParameters) && !empty($this->commandParameters['objects'])) {
+            $objects = $this->commandParameters['objects'];
+        } else {
+            $objects = $this->settings->getFeatureSettings()['objects'];
+        }
+
+        return in_array('company', $objects);
+    }
+
+    /**
+     * @param array $params
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function pushCompanies($params = []): array
+    {
+        $config                  = $this->mergeConfigToFeatureSettings($params);
+        $integrationEntityRepo   = $this->getIntegrationEntityRepository();
+
+        $totalUpdated    = 0;
+        $totalCreated    = 0;
+        $totalErrors     = 0;
+        $object          = 'company';
+
+        //get company fields from Mautic that have been mapped
+        $mauticCompanyFieldString = 'l.'.implode(', l.', $config['companyFields']);
+
+        $fieldKeys      = array_keys($config['companyFields']);
+        $fieldsToCreate = $this->prepareFieldsForSync($config['companyFields'], $fieldKeys, $object);
+        $fieldsToUpdate = $this->getPriorityFieldsForIntegration($config, $object, 'mautic_company');
+
+        // Get a total number of companies to be updated and/or created for the progress counter
+        $totalToUpdate = $integrationEntityRepo->findLeadsToUpdate(
+            'Saelos',
+            'company',
+            $mauticCompanyFieldString,
+            false,
+            $params['start'],
+            $params['end'],
+            $object
+        )['company'];
+
+        $totalToCreate = $integrationEntityRepo->findLeadsToCreate(
+            'Saelos',
+            $mauticCompanyFieldString,
+            false,
+            $params['start'],
+            $params['end'],
+            'company'
+        );
+
+        $totalCount = $totalToProcess = $totalToCreate + $totalToUpdate;
+
+        if (!isset($this->progressBar)) {
+            $this->setProgressBar(new ProgressBar($params['output'], $totalCount), 'company');
+        }
+
+        while ($totalCount > 0) {
+            if ($totalToUpdate) {
+                $toUpdate = $integrationEntityRepo->findLeadsToUpdate(
+                    'Saelos',
+                    'company',
+                    $mauticCompanyFieldString,
+                    $params['limit'],
+                    $params['start'],
+                    $params['end'],
+                    'company'
+                );
+
+                foreach ($toUpdate as $update) {
+                    try {
+                        $updateData = [
+                            'custom_fields' => []
+                        ];
+
+                        foreach ($fieldsToUpdate as $integrationField => $mauticField) {
+                            if (strpos($integrationField, 'saelosCustom_') === 0) {
+                                $updateData['custom_fields'][substr($integrationField, strlen('saelosCustom_'))] = $update[$mauticField];
+                            } else {
+                                $updateData[$integrationField] = $update[$mauticField];
+                            }
+                        }
+
+                        $updatedCompany = $this->getApiHelper()->updateCompany($updateData, $update['integration_entity_id']);
+
+                        $this->createIntegrationEntity(
+                            'company',
+                            $updatedCompany['data']['id'],
+                            'company',
+                            $update['internal_entity_id']
+                        );
+
+                        $totalUpdated++;
+                    } catch (ApiErrorException $e) {
+                        $totalErrors++;
+                        continue;
+                    } finally {
+                        $totalCount--;
+                        $this->advanceProgress();
+                    }
+                }
+            }
+
+            if ($totalToCreate) {
+              $toCreate = $integrationEntityRepo->findLeadsToCreate(
+                  'Saelos',
+                  $mauticCompanyFieldString,
+                  $params['limit'],
+                  $params['start'],
+                  $params['end'],
+                  'company'
+              );
+
+              foreach ($toCreate as $create) {
+                  try {
+                      $createData = [
+                          'custom_fields' => []
+                      ];
+
+                      foreach ($fieldsToCreate as $integrationField => $mauticField) {
+                          if (strpos($integrationField, 'saelosCustom_') === 0) {
+                              $createData['custom_fields'][substr($integrationField, strlen('saelosCustom_'))] = $create[$mauticField];
+                          } else {
+                              $createData[$integrationField] = $create[$mauticField];
+                          }
+                      }
+
+                      $createdCompany = $this->getApiHelper()->pushCompany($createData);
+
+                      $this->createIntegrationEntity(
+                          'company',
+                          $createdCompany['data']['id'],
+                          'company',
+                          $create['internal_entity_id']
+                      );
+
+                      $totalCreated++;
+                  } catch (ApiErrorException $e) {
+                      $totalErrors++;
+                      continue;
+                  } finally {
+                      $totalCount--;
+                      $this->advanceProgress();
+                  }
+              }
+            }
+        }
+
+        $this->finishProgressBar();
+
+        $this->logger->debug('SAELOS: '.$this->getApiHelper()->getRequestCounter().' API requests made for pushCompanies');
+
+        // Assume that those not touched are ignored due to not having matching fields, duplicates, etc
+        $totalIgnored = $totalToProcess - ($totalUpdated + $totalCreated + $totalErrors);
+
+        if ($totalIgnored < 0) { //this could have been marked as deleted so it was not pushed
+            $totalIgnored = $totalIgnored * -1;
+        }
+
+        return [$totalUpdated, $totalCreated, $totalErrors, $totalIgnored];
+    }
+
+    /**
+     * @return bool
+     */
+    public function shouldPushCompanies(): bool
+    {
+        if (!empty($this->commandParameters) && !empty($this->commandParameters['objects'])) {
+            $objects = $this->commandParameters['objects'];
+        } else {
+            $objects = $this->settings->getFeatureSettings()['objects'];
+        }
+
+        return in_array('company', $objects);
     }
 }
