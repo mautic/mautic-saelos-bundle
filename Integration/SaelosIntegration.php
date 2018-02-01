@@ -926,7 +926,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
         $fieldKeys      = array_keys($config['companyFields']);
         $fieldsToCreate = $this->prepareFieldsForSync($config['companyFields'], $fieldKeys, $object);
-        $fieldsToUpdate = $this->getPriorityFieldsForIntegration($config, $object, 'mautic_company');
+        $fieldsToUpdate = $fieldsToCreate;
 
         // Get a total number of companies to be updated and/or created for the progress counter
         $totalToUpdate = $integrationEntityRepo->findLeadsToUpdate(
@@ -964,7 +964,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $params['start'],
                     $params['end'],
                     'company'
-                );
+                )['company'];
 
                 foreach ($toUpdate as $update) {
                     try {
