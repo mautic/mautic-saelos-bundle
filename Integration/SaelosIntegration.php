@@ -694,7 +694,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $params['start'],
                     $params['end'],
                     'person'
-                );
+                )['person'];
 
                 foreach ($toUpdate as $update) {
                     try {
