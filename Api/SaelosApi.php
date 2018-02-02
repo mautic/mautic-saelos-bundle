@@ -166,7 +166,7 @@ class SaelosApi
      */
     public function updateContact($data, $id)
     {
-        return $this->request('/people/'.$id, $data, 'POST');
+        return $this->request('/people/'.$id, $data, 'PATCH');
     }
 
     /**
@@ -189,6 +189,6 @@ class SaelosApi
      */
     public function updateCompany($data, $id)
     {
-        return $this->request('/companies/'.$id, $data, 'POST');
+        return $this->request('/companies/'.$id, $data, 'PATCH');
     }
 }
