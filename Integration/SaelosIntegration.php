@@ -720,11 +720,17 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                             }
                         }
 
-                        $updatedCompany = $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
+                        $companyId = $this->getCompanyIdForLead($update['internal_entity_id']);
+
+                        if ($companyId) {
+                            $updateData['company_id'] = (int) $companyId;
+                        }
+
+                        $updatedContact = $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
 
                         $this->createIntegrationEntity(
                             'person',
-                            $updatedCompany['data']['id'],
+                            $updatedContact['data']['id'],
                             'lead',
                             $update['internal_entity_id']
                         );
@@ -774,11 +780,17 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                             }
                         }
 
-                        $createdCompany = $this->getApiHelper()->pushContact($createData);
+                        $companyId = $this->getCompanyIdForLead($create['internal_entity_id']);
+
+                        if ($companyId) {
+                            $createData['company_id'] = (int) $companyId;
+                        }
+
+                        $createdContact = $this->getApiHelper()->pushContact($createData);
 
                         $this->createIntegrationEntity(
                             'person',
-                            $createdCompany['data']['id'],
+                            $createdContact['data']['id'],
                             'lead',
                             $create['internal_entity_id']
                         );
@@ -1066,6 +1078,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
             $totalIgnored = $totalIgnored * -1;
         }
 
+        $this->updateCompanyMappings();
+
         return [$totalUpdated, $totalCreated, $totalErrors, $totalIgnored];
     }
 
@@ -1081,5 +1095,28 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
         }
 
         return in_array('company', $objects);
+    }
+
+    /**
+     * @param $leadId
+     *
+     * @return null
+     */
+    private function getCompanyIdForLead($leadId)
+    {
+        $query = $this->em->getConnection()->createQueryBuilder();
+
+        $query->select('ie.integration_entity_id')
+            ->from(MAUTIC_TABLE_PREFIX . 'integration_entity', 'ie')
+            ->leftJoin('ie', MAUTIC_TABLE_PREFIX . 'companies_leads', 'cl', 'cl.company_id = ie.internal_entity_id')
+            ->where('cl.lead_id = ' . (int) $leadId);
+
+        $result = $query->execute()->fetch();
+
+        if ($result) {
+            return $result['integration_entity_id'];
+        }
+
+        return null;
     }
 }
