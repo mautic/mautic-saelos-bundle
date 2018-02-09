@@ -4,6 +4,7 @@ namespace MauticPlugin\MauticSaelosBundle\Integration;
 
 use Mautic\LeadBundle\Entity\Company;
 use Mautic\LeadBundle\Entity\Lead;
+use Mautic\PluginBundle\Entity\IntegrationEntity;
 use Mautic\PluginBundle\Exception\ApiErrorException;
 use MauticPlugin\MauticSaelosBundle\Api\SaelosApi;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPullCompanies;
@@ -727,14 +728,13 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                             $createData['company']['id'] = (int) $companyId;
                         }
 
-                        $updatedContact = $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
+                        $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
 
-                        $this->createIntegrationEntity(
-                            'person',
-                            $updatedContact['data']['id'],
-                            'lead',
-                            $update['internal_entity_id']
-                        );
+                        /** @var IntegrationEntity $contactIntegrationEntity */
+                        $contactIntegrationEntity = $integrationEntityRepo->getEntity($update['id']);
+                        $contactIntegrationEntity->setLastSyncDate(new \DateTime);
+
+                        $integrationEntityRepo->saveEntity($contactIntegrationEntity);
 
                         $totalUpdated++;
                     } catch (ApiErrorException $e) {
@@ -999,14 +999,13 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                             }
                         }
 
-                        $updatedCompany = $this->getApiHelper()->updateCompany($updateData, $update['integration_entity_id']);
+                        $this->getApiHelper()->updateCompany($updateData, $update['integration_entity_id']);
 
-                        $this->createIntegrationEntity(
-                            'company',
-                            $updatedCompany['data']['id'],
-                            'company',
-                            $update['internal_entity_id']
-                        );
+                        /** @var IntegrationEntity $contactIntegrationEntity */
+                        $companyIntegrationEntity = $integrationEntityRepo->getEntity($update['id']);
+                        $companyIntegrationEntity->setLastSyncDate(new \DateTime);
+
+                        $integrationEntityRepo->saveEntity($companyIntegrationEntity);
 
                         $totalUpdated++;
                     } catch (ApiErrorException $e) {
