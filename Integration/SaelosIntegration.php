@@ -742,7 +742,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $totalUpdated++;
                 } catch (ApiErrorException $e) {
                     $totalErrors++;
-                    $this->logger->debug(sprintf('SAELOS: Error updating contact: %s. The error was: %s', var_export($update), $e->getMessage()));
+                    $this->logger->debug(sprintf('SAELOS: Error updating contact: %s. The error was: %s', var_export($update, true), $e->getMessage()));
                     continue;
                 }
                 finally {
@@ -779,14 +779,17 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
                     $createdContact = $this->getApiHelper()->pushContact($createData);
 
-                    $this->createIntegrationEntity(
-                        'person',
-                        $createdContact['data']['id'],
-                        'lead',
-                        $create['internal_entity_id']
-                    );
+                    if (isset($createdContact['data']['id'])) {
+                        $this->createIntegrationEntity(
+                            'person',
+                            $createdContact['data']['id'],
+                            'lead',
+                            $create['internal_entity_id']
+                        );
 
-                    $totalCreated++;
+                        $totalCreated++;
+                    }
+
                 } catch (ApiErrorException $e) {
                     $totalErrors++;
                     $this->logger->debug(sprintf('SAELOS: Error creating contact: %s. The error was: %s', var_export($create, true), $e->getMessage()));
