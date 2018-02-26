@@ -705,126 +705,95 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
             $this->setProgressBar(new ProgressBar($params['output'], $totalCount), 'lead');
         }
 
-        while ($totalCount > 0) {
-            if ($totalToUpdate) {
-                $toUpdate = $integrationEntityRepo->findLeadsToUpdate(
-                    'Saelos',
-                    'lead',
-                    $mauticLeadFieldString,
-                    $params['limit'],
-                    $params['start'],
-                    $params['end'],
-                    'person'
-                )['person'];
+        while ($totalToUpdate > 0) {
+            $toUpdate = $integrationEntityRepo->findLeadsToUpdate(
+                'Saelos',
+                'lead',
+                $mauticLeadFieldString,
+                $params['limit'],
+                $params['start'],
+                $params['end'],
+                'person'
+            )['person'];
 
-                foreach ($toUpdate as $update) {
-                    try {
-                        $updateData = [
-                            'custom_fields' => []
-                        ];
+            foreach ($toUpdate as $update) {
+                try {
+                    $updateData = [
+                        'custom_fields' => []
+                    ];
 
-                        foreach ($fieldsToUpdate as $integrationField => $mauticField) {
-                            // @TODO
-                            if ($mauticField === 'mauticContactTimelineLink') {
-                                continue;
-                            }
+                    $this->normalize($fieldsToUpdate, $update, $updateData);
 
-                            if (strpos($integrationField, 'saelosCustom_') === 0) {
-                                $fieldId = (int) substr($integrationField, strlen('saelosCustom_'));
+                    $companyId = $this->getCompanyIdForLead($update['internal_entity_id']);
 
-                                $updateData['custom_fields'][] = [
-                                    'custom_field_id' => $fieldId,
-                                    'value' => $update[$mauticField],
-                                ];
-                            } else {
-                                $updateData[$integrationField] = $update[$mauticField];
-                            }
-                        }
-
-                        $companyId = $this->getCompanyIdForLead($update['internal_entity_id']);
-
-                        if ($companyId) {
-                            $createData['company'] = [];
-                            $createData['company']['id'] = (int) $companyId;
-                        }
-
-                        $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
-
-                        /** @var IntegrationEntity $contactIntegrationEntity */
-                        $contactIntegrationEntity = $integrationEntityRepo->getEntity($update['id']);
-                        $contactIntegrationEntity->setLastSyncDate(new \DateTime);
-
-                        $integrationEntityRepo->saveEntity($contactIntegrationEntity);
-
-                        $totalUpdated++;
-                    } catch (ApiErrorException $e) {
-                        $totalErrors++;
-                        continue;
-                    } finally {
-                        $totalCount--;
-                        $this->advanceProgress();
+                    if ($companyId) {
+                        $createData['company']       = [];
+                        $createData['company']['id'] = (int)$companyId;
                     }
+
+                    $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
+
+                    /** @var IntegrationEntity $contactIntegrationEntity */
+                    $contactIntegrationEntity = $integrationEntityRepo->getEntity($update['id']);
+                    $contactIntegrationEntity->setLastSyncDate(new \DateTime);
+
+                    $integrationEntityRepo->saveEntity($contactIntegrationEntity);
+
+                    $totalUpdated++;
+                } catch (ApiErrorException $e) {
+                    $totalErrors++;
+                    $this->logger->debug(sprintf('SAELOS: Error updating contact: %s. The error was: %s', var_export($update), var_export($e)));
+                    continue;
+                }
+                finally {
+                    $totalCount--;
+                    $this->advanceProgress();
                 }
             }
+        }
 
-            if ($totalToCreate) {
-                $toCreate = $integrationEntityRepo->findLeadsToCreate(
-                    'Saelos',
-                    $mauticLeadFieldString,
-                    $params['limit'],
-                    $params['start'],
-                    $params['end'],
-                    'lead'
-                );
+        while ($totalToCreate > 0) {
+            $toCreate = $integrationEntityRepo->findLeadsToCreate(
+                'Saelos',
+                $mauticLeadFieldString,
+                $params['limit'],
+                $params['start'],
+                $params['end'],
+                'lead'
+            );
 
-                foreach ($toCreate as $create) {
-                    try {
-                        $createData = [
-                            'custom_fields' => []
-                        ];
+            foreach ($toCreate as $create) {
+                try {
+                    $createData = [
+                        'custom_fields' => []
+                    ];
 
-                        foreach ($fieldsToCreate as $integrationField => $mauticField) {
-                            // @TODO
-                            if ($mauticField === 'mauticContactTimelineLink') {
-                                continue;
-                            }
+                    $this->normalize($fieldsToCreate, $create, $createData);
 
-                            if (strpos($integrationField, 'saelosCustom_') === 0) {
-                                $fieldId = (int) substr($integrationField, strlen('saelosCustom_'));
+                    $companyId = $this->getCompanyIdForLead($create['internal_entity_id']);
 
-                                $createData['custom_fields'][] = [
-                                    'custom_field_id' => $fieldId,
-                                    'value' => $create[$mauticField],
-                                ];
-                            } else {
-                                $createData[$integrationField] = $create[$mauticField];
-                            }
-                        }
-
-                        $companyId = $this->getCompanyIdForLead($create['internal_entity_id']);
-
-                        if ($companyId) {
-                            $createData['company'] = [];
-                            $createData['company']['id'] = (int) $companyId;
-                        }
-
-                        $createdContact = $this->getApiHelper()->pushContact($createData);
-
-                        $this->createIntegrationEntity(
-                            'person',
-                            $createdContact['data']['id'],
-                            'lead',
-                            $create['internal_entity_id']
-                        );
-
-                        $totalCreated++;
-                    } catch (ApiErrorException $e) {
-                        $totalErrors++;
-                        continue;
-                    } finally {
-                        $totalCount--;
-                        $this->advanceProgress();
+                    if ($companyId) {
+                        $createData['company'] = [];
+                        $createData['company']['id'] = (int) $companyId;
                     }
+
+                    $createdContact = $this->getApiHelper()->pushContact($createData);
+
+                    $this->createIntegrationEntity(
+                        'person',
+                        $createdContact['data']['id'],
+                        'lead',
+                        $create['internal_entity_id']
+                    );
+
+                    $totalCreated++;
+                } catch (ApiErrorException $e) {
+                    $totalErrors++;
+                    $this->logger->debug(sprintf('SAELOS: Error creating contact: %s. The error was: %s', var_export($create), var_export($e)));
+                    continue;
+                } finally {
+                    $totalCount--;
+                    $this->advanceProgress();
                 }
             }
         }
@@ -1137,5 +1106,31 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
         }
 
         return null;
+    }
+
+    /**
+     * @param array $fields
+     * @param array $data
+     * @param array $newData
+     */
+    protected function normalize($fields, $data, &$newData)
+    {
+        foreach ($fields as $integrationField => $mauticField) {
+            // @TODO
+            if ($mauticField === 'mauticContactTimelineLink') {
+                continue;
+            }
+
+            if (strpos($integrationField, 'saelosCustom_') === 0) {
+                $fieldId = (int)substr($integrationField, strlen('saelosCustom_'));
+
+                $newData['custom_fields'][] = [
+                    'custom_field_id' => $fieldId,
+                    'value'           => $data[$mauticField],
+                ];
+            } else {
+                $newData[$integrationField] = $data[$mauticField];
+            }
+        }
     }
 }
