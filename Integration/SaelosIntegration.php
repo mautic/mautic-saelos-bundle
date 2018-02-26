@@ -443,8 +443,12 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
             unset($record['deals']);
             unset($record['activities']);
-            unset($record['user']);
             unset($record['custom_fields']);
+
+            if (isset($record['user'])) {
+                $record['owner_email'] = $record['user']['email'];
+                unset($record['user']);
+            }
 
             switch ($object) {
                 case 'person':
@@ -552,6 +556,22 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     'multiple'    => true,
                     'label'       => 'mautic.saelos.form.objects_to_pull_from',
                     'label_attr'  => ['class' => ''],
+                    'empty_value' => false,
+                    'required'    => false,
+                ]
+            );
+
+            $builder->add(
+                'updateOwner',
+                'choice',
+                [
+                    'choices' => [
+                        'updateOwner' => 'mautic.saelos.updateOwner',
+                    ],
+                    'expanded'    => true,
+                    'multiple'    => true,
+                    'label'       => 'mautic.saelos.form.updateOwner',
+                    'label_attr'  => ['class' => 'control-label'],
                     'empty_value' => false,
                     'required'    => false,
                 ]
