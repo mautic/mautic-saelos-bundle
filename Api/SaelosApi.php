@@ -83,7 +83,8 @@ class SaelosApi
         switch ($object) {
             case 'Lead':
             case 'person':
-                $url = 'contexts/Person';
+            case 'contact':
+                $url = 'contexts/Contact';
                 break;
             case 'company':
                 $url = 'contexts/Company';
@@ -99,11 +100,11 @@ class SaelosApi
         $fields       = [];
         $fieldsToSkip = [
             'id',
-            'deals',
+            'opportunities',
             'company',
             'activities',
             'notes',
-            'people',
+            'contacts',
         ];
 
         foreach ($response as $field => $details) {
@@ -131,7 +132,7 @@ class SaelosApi
      */
     public function getLeads($query)
     {
-        return $this->request('/people', $query);
+        return $this->request('/contacts', $query);
     }
 
     /**
@@ -154,7 +155,7 @@ class SaelosApi
      */
     public function pushContact($data)
     {
-        return $this->request('/people', $data, 'POST');
+        return $this->request('/contacts', $data, 'POST');
     }
 
     /**
@@ -166,7 +167,7 @@ class SaelosApi
      */
     public function updateContact($data, $id)
     {
-        return $this->request('/people/'.$id, $data, 'PATCH');
+        return $this->request('/contacts/'.$id, $data, 'PATCH');
     }
 
     /**
