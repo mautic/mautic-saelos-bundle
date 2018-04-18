@@ -454,14 +454,15 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
             switch ($object) {
                 case 'contact':
-                    if (isset($record['company'])) {
-                        unset($record['company']['contacts']);
-                        unset($record['company']['opportunities']);
-                        unset($record['company']['activities']);
-                        unset($record['company']['user']);
-                        unset($record['company']['custom_fields']);
+                    if (isset($record['companies']) && is_array($record['companies'])) {
+                        $thisCompany = array_shift($record['companies']);
+                        unset($thisCompany['contacts']);
+                        unset($thisCompany['opportunities']);
+                        unset($thisCompany['activities']);
+                        unset($thisCompany['user']);
+                        unset($thisCompany['custom_fields']);
 
-                        $record['company'] = $this->getMauticCompany($record['company'], 'company')->getName();
+                        $record['companies'][] = $this->getMauticCompany($thisCompany, 'company')->getName();
                     }
 
                     $mauticObjectReference = 'lead';
