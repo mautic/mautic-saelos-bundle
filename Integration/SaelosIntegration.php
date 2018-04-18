@@ -461,8 +461,13 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         unset($thisCompany['activities']);
                         unset($thisCompany['user']);
                         unset($thisCompany['custom_fields']);
+                        unset($record['companies']);
 
-                        $record['companies'][] = $this->getMauticCompany($thisCompany, 'company')->getName();
+                        $co = $this->getMauticCompany($thisCompany, 'company');
+
+                        if (is_object($co)) {
+                            $record['company'] = $co->getName();
+                        }
                     }
 
                     $mauticObjectReference = 'lead';
