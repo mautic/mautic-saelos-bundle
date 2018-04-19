@@ -735,8 +735,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $companyId = $this->getCompanyIdForLead($update['internal_entity_id']);
 
                     if ($companyId) {
-                        $createData['company']       = [];
-                        $createData['company']['id'] = (int)$companyId;
+                        $updateData['companies']       = [];
+                        $updateData['companies'][0]['id'] = (int)$companyId;
                     }
 
                     $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
@@ -781,8 +781,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $companyId = $this->getCompanyIdForLead($create['internal_entity_id']);
 
                     if ($companyId) {
-                        $createData['company'] = [];
-                        $createData['company']['id'] = (int) $companyId;
+                        $updateData['companies']       = [];
+                        $updateData['companies'][0]['id'] = (int)$companyId;
                     }
 
                     $createdContact = $this->getApiHelper()->pushContact($createData);
