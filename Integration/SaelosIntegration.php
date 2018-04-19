@@ -454,7 +454,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
             switch ($object) {
                 case 'contact':
-                    if (isset($record['companies']) && is_array($record['companies'])) {
+                    if (isset($record['companies']) && is_array($record['companies']) && count($record['companies'])) {
                         $thisCompany = array_shift($record['companies']);
                         unset($thisCompany['contacts']);
                         unset($thisCompany['opportunities']);
