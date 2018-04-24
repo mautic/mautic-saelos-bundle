@@ -136,7 +136,7 @@ class SyncIntegrations extends Command
 
         $integrationObject->setCommandParameters($params);
 
-        if (false && $integrationObject instanceof CanPullContacts && $integrationObject->shouldPullContacts()) {
+        if ($integrationObject instanceof CanPullContacts && $integrationObject->shouldPullContacts()) {
             $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.fetch.leads', ['%integration%' => $integration]) . '</info>');
             $output->writeln('<comment>' . $this->translator->trans('mautic.plugin.command.fetch.leads.starting') . '</comment>');
 
