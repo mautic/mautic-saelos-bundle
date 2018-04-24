@@ -13,11 +13,11 @@ namespace MauticPlugin\MauticSaelosBundle\Command;
 
 use Mautic\PluginBundle\Helper\IntegrationHelper;
 use Mautic\PluginBundle\Integration\AbstractIntegration;
-use MauticPlugin\MauticSaelosBundle\Contracts\{
+use MauticPlugin\MauticSaelosBundle\Contracts \{
     CanPullCompanies,
-    CanPullContacts,
-    CanPushCompanies,
-    CanPushContacts
+        CanPullContacts,
+        CanPushCompanies,
+        CanPushContacts
 };
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -118,8 +118,7 @@ class SyncIntegrations extends Command
                 InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL,
                 'Select the specific objects set in the integration to sync. Can only pass objects that have been set in the integration config.',
                 null
-            )
-        ;
+            );
 
         parent::configure();
     }
@@ -131,52 +130,52 @@ class SyncIntegrations extends Command
     {
         defined('MAUTIC_CONSOLE_VERBOSITY') or define('MAUTIC_CONSOLE_VERBOSITY', $output->getVerbosity());
 
-        $integration       = $input->getArgument('integration');
+        $integration = $input->getArgument('integration');
         $integrationObject = $this->getIntegrationObject($integration);
-        $params            = $this->getParametersFromInput($input, $output);
+        $params = $this->getParametersFromInput($input, $output);
 
         $integrationObject->setCommandParameters($params);
 
-        if ($integrationObject instanceof CanPullContacts && $integrationObject->shouldPullContacts()) {
-            $output->writeln('<info>'.$this->translator->trans('mautic.plugin.command.fetch.leads', ['%integration%' => $integration]).'</info>');
-            $output->writeln('<comment>'.$this->translator->trans('mautic.plugin.command.fetch.leads.starting').'</comment>');
+        if (false && $integrationObject instanceof CanPullContacts && $integrationObject->shouldPullContacts()) {
+            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.fetch.leads', ['%integration%' => $integration]) . '</info>');
+            $output->writeln('<comment>' . $this->translator->trans('mautic.plugin.command.fetch.leads.starting') . '</comment>');
 
             list($justUpdated, $justCreated) = $integrationObject->pullContacts($params);
 
             $output->writeln('');
             $output->writeln(
-                '<comment>'.$this->translator->trans(
+                '<comment>' . $this->translator->trans(
                     'mautic.plugin.command.fetch.leads.events_executed_breakout',
                     ['%updated%' => $justUpdated, '%created%' => $justCreated]
                 )
-                .'</comment>'."\n"
+                    . '</comment>' . "\n"
             );
         }
 
         if ($integrationObject instanceof CanPullCompanies && $integrationObject->shouldPullCompanies()) {
-            $output->writeln('<info>'.$this->translator->trans('mautic.plugin.command.fetch.companies', ['%integration%' => $integration]).'</info>');
-            $output->writeln('<comment>'.$this->translator->trans('mautic.plugin.command.fetch.companies.starting').'</comment>');
+            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.fetch.companies', ['%integration%' => $integration]) . '</info>');
+            $output->writeln('<comment>' . $this->translator->trans('mautic.plugin.command.fetch.companies.starting') . '</comment>');
 
             list($justUpdated, $justCreated) = $integrationObject->pullCompanies($params);
 
             $output->writeln('');
             $output->writeln(
-                '<comment>'.$this->translator->trans(
+                '<comment>' . $this->translator->trans(
                     'mautic.plugin.command.fetch.companies.events_executed_breakout',
                     ['%updated%' => $justUpdated, '%created%' => $justCreated]
                 )
-                .'</comment>'."\n"
+                    . '</comment>' . "\n"
             );
         }
 
         if ($integrationObject instanceof CanPushContacts && $integrationObject->shouldPushContacts()) {
-            $output->writeln('<info>'.$this->translator->trans('mautic.plugin.command.pushing.leads', ['%integration%' => $integration]).'</info>');
+            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.pushing.leads', ['%integration%' => $integration]) . '</info>');
 
             list($justUpdated, $justCreated, $errored, $ignored) = $integrationObject->pushContacts($params);
 
             $output->writeln('');
             $output->writeln(
-                '<comment>'.$this->translator->trans(
+                '<comment>' . $this->translator->trans(
                     'mautic.plugin.command.fetch.pushing.leads.events_executed',
                     [
                         '%updated%' => $justUpdated,
@@ -185,18 +184,18 @@ class SyncIntegrations extends Command
                         '%ignored%' => $ignored,
                     ]
                 )
-                .'</comment>'."\n"
+                    . '</comment>' . "\n"
             );
         }
 
         if ($integrationObject instanceof CanPushCompanies && $integrationObject->shouldPushCompanies()) {
-            $output->writeln('<info>'.$this->translator->trans('mautic.plugin.command.pushing.companies', ['%integration%' => $integration]).'</info>');
+            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.pushing.companies', ['%integration%' => $integration]) . '</info>');
 
             list($justUpdated, $justCreated, $errored, $ignored) = $integrationObject->pushCompanies($params);
 
             $output->writeln('');
             $output->writeln(
-                '<comment>'.$this->translator->trans(
+                '<comment>' . $this->translator->trans(
                     'mautic.plugin.command.fetch.pushing.companies.events_executed',
                     [
                         '%updated%' => $justUpdated,
@@ -205,7 +204,7 @@ class SyncIntegrations extends Command
                         '%ignored%' => $ignored,
                     ]
                 )
-                .'</comment>'."\n"
+                    . '</comment>' . "\n"
             );
         }
 
@@ -220,7 +219,7 @@ class SyncIntegrations extends Command
      */
     private function formatStartDate($startDate, $interval = '15 minutes')
     {
-        return !$startDate || $startDate === 'now' ? date('c', strtotime('-'.$interval)) : date('c', strtotime($startDate));
+        return !$startDate || $startDate === 'now' ? date('c', strtotime('-' . $interval)) : date('c', strtotime($startDate));
     }
 
     /**
@@ -274,7 +273,7 @@ class SyncIntegrations extends Command
         if (!$integrationObject->isAuthorized()) {
             throw new \RuntimeException(
                 sprintf(
-                    '<error>ERROR:</error> <info>'.$this->translator->trans('mautic.plugin.command.notauthorized').'</info>',
+                    '<error>ERROR:</error> <info>' . $this->translator->trans('mautic.plugin.command.notauthorized') . '</info>',
                     $integration
                 ),
                 255
@@ -301,7 +300,7 @@ class SyncIntegrations extends Command
     private function getParametersFromInput(InputInterface $input, OutputInterface $output)
     {
         $startDate = $this->formatStartDate($input->getOption('start-date'), $input->getOption('time-interval'));
-        $endDate   = $this->formatEndDate($input->getOption('end-date'));
+        $endDate = $this->formatEndDate($input->getOption('end-date'));
 
         if (!$startDate || !$endDate || ($startDate > $endDate)) {
             throw new \RuntimeException(
@@ -315,12 +314,12 @@ class SyncIntegrations extends Command
         }
 
         return [
-            'start'    => $startDate,
-            'end'      => $endDate,
-            'limit'    => $input->getOption('limit'),
+            'start' => $startDate,
+            'end' => $endDate,
+            'limit' => $input->getOption('limit'),
             'fetchAll' => $input->getOption('fetch-all'),
-            'objects'  => $input->getOption('objects'),
-            'output'   => $output,
+            'objects' => $input->getOption('objects'),
+            'output' => $output,
         ];
     }
 }

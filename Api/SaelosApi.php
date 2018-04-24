@@ -16,9 +16,9 @@ class SaelosApi
      * @var array
      */
     protected $requestSettings = [
-        'content_type'      => 'application/json',
+        'content_type' => 'application/json',
         'encode_parameters' => 'json',
-        'return_raw'        => true,
+        'return_raw' => true,
     ];
 
     /**
@@ -50,10 +50,10 @@ class SaelosApi
         $this->requestCounter++;
 
         if (!empty($operation) && strpos($operation, '/') !== 0) {
-            $operation = '/'.$operation;
+            $operation = '/' . $operation;
         }
 
-        $url      = $this->integration->getApiUrl().$operation;
+        $url = $this->integration->getApiUrl() . $operation;
         $response = $this->integration->makeRequest($url, $parameters, $method, $this->requestSettings);
 
         if ($response->code > 299) {
@@ -66,7 +66,7 @@ class SaelosApi
     /**
      * @return int
      */
-    public function getRequestCounter(): int
+    public function getRequestCounter() : int
     {
         return $this->requestCounter;
     }
@@ -81,8 +81,6 @@ class SaelosApi
     public function getFields($object)
     {
         switch ($object) {
-            case 'Lead':
-            case 'person':
             case 'contact':
                 $url = 'contexts/Contact';
                 break;
@@ -97,10 +95,11 @@ class SaelosApi
             return [];
         }
 
-        $fields       = [];
+        $fields = [];
         $fieldsToSkip = [
             'id',
             'opportunities',
+            'companies',
             'company',
             'activities',
             'notes',
@@ -112,7 +111,7 @@ class SaelosApi
                 continue;
             }
 
-            $key = isset($details['is_custom']) && $details['is_custom'] === true ? 'saelosCustom_'.$details['field_id'] : $field;
+            $key = isset($details['is_custom']) && $details['is_custom'] === true ? 'saelosCustom_' . $details['field_id'] : $field;
 
             $fields[$key] = [
                 'label' => $details['label'],
@@ -167,7 +166,7 @@ class SaelosApi
      */
     public function updateContact($data, $id)
     {
-        return $this->request('/contacts/'.$id, $data, 'PATCH');
+        return $this->request('/contacts/' . $id, $data, 'PATCH');
     }
 
     /**
@@ -190,6 +189,6 @@ class SaelosApi
      */
     public function updateCompany($data, $id)
     {
-        return $this->request('/companies/'.$id, $data, 'PATCH');
+        return $this->request('/companies/' . $id, $data, 'PATCH');
     }
 }
