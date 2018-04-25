@@ -524,7 +524,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
                     if (!isset($this->progressBar)) {
                         $total = $results['meta']['total'];
-                        $this->setProgressBar(new ProgressBar($params['output'], $total), 'company');
+                        $this->setProgressBar(new ProgressBar($params['output'], $total), 'contact');
                     }
 
                     $results['data'] = $results['data'] ?? [];
@@ -802,7 +802,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $executed[static::CREATED] += $justCreated;
                     $processed += count($results['data']);
 
-                    if (array_key_exists('links', $results)) {
+                    if (array_key_exists('links', $results) && $results['links']['next'] !== null) {
                         $query['page'] = $this->getNextPageNumberFromResults($results['links']);
                     } else {
                         if ($processed < $total) {
@@ -1083,7 +1083,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
      */
     private function getNextPageNumberFromResults(array $links) : int
     {
-        parse_str(parse_url($links['next'] ?? '?page=1', PHP_URL_QUERY), $linkParams);
+        parse_str(parse_url($links['next'], PHP_URL_QUERY), $linkParams);
 
         return (int)$linkParams['page'];
     }
