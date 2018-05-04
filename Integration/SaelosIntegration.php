@@ -1037,7 +1037,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
         $query->select('ie.integration_entity_id')
             ->from(MAUTIC_TABLE_PREFIX . 'integration_entity', 'ie')
             ->leftJoin('ie', MAUTIC_TABLE_PREFIX . 'companies_leads', 'cl', 'cl.company_id = ie.internal_entity_id')
-            ->where('cl.lead_id = ' . (int)$leadId);
+            ->where('ie.integration_entity = "company"')
+            ->andWhere('cl.lead_id = ' . (int)$leadId);
 
         $result = $query->execute()->fetch();
 
