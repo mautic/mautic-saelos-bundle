@@ -661,6 +661,12 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         ];
                     }
 
+                    $ownerName = $this->getOwnerNameForLead($update['internal_entity_id']);
+
+                    if ($ownerName) {
+                        $updateData['user_id'] = $ownerName;
+                    }
+
                     $response = $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
 
                     /** @var IntegrationEntity $contactIntegrationEntity */
@@ -702,13 +708,19 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $companyId = $this->getCompanyIdForLead($create['internal_entity_id']);
 
                     if ($companyId) {
-                        $updateData['companies'] = [];
-                        $updateData['companies'][] = [
+                        $createData['companies'] = [];
+                        $createData['companies'][] = [
                             'id' => (int)$companyId,
                             'pivot' => [
                                 'primary' => 1
                             ]
                         ];
+                    }
+
+                    $ownerName = $this->getOwnerNameForLead($create['internal_entity_id']);
+
+                    if ($ownerName) {
+                        $createData['user_id'] = $ownerName;
                     }
 
                     $createdContact = $this->getApiHelper()->pushContact($createData);
@@ -1024,7 +1036,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     /**
      * @param $leadId
      *
-     * @return null
+     * @return string|null
      */
     private function getCompanyIdForLead($leadId)
     {
@@ -1043,6 +1055,29 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
         }
 
         return null;
+    }
+
+    /**
+     * @param $leadId
+     *
+     * @return string|null
+     */
+    private function getOwnerNameForLead($leadId)
+    {
+        $query = $this->em->getConnection()->createQueryBuilder();
+
+        $query->select('u.first_name, u.last_name')
+            ->from(MAUTIC_TABLE_PREFIX . 'users', 'u')
+            ->leftJoin('l', MAUTIC_TABLE_PREFIX . 'leads', 'l', 'l.owner_id = u.id')
+            ->where('l.id = ' . (int) $leadId);
+
+            $result = $query->execute()->fetch();
+
+            if ($result) {
+                return $result['first_name'] . ' ' . $result['last_name'];
+            }
+
+            return null;
     }
 
     /**
