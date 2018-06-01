@@ -1068,7 +1068,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
         $query->select('u.first_name, u.last_name')
             ->from(MAUTIC_TABLE_PREFIX . 'users', 'u')
-            ->leftJoin('l', MAUTIC_TABLE_PREFIX . 'leads', 'l', 'l.owner_id = u.id')
+            ->leftJoin('u', MAUTIC_TABLE_PREFIX . 'leads', 'l', 'l.owner_id = u.id')
             ->where('l.id = ' . (int) $leadId);
 
             $result = $query->execute()->fetch();
