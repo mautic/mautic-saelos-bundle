@@ -981,7 +981,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
             );
 
             // We've run out of companies
-            if (count($toUpdate) === 0) {
+            if (count($toCreate) === 0) {
                 break;
             }
 
