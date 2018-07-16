@@ -16,6 +16,9 @@ class SaelosApi
      * @var array
      */
     protected $requestSettings = [
+        'headers' => [
+            'Accept' => 'application/json',
+        ],
         'content_type' => 'application/json',
         'encode_parameters' => 'json',
         'return_raw' => true,

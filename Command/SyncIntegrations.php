@@ -77,7 +77,7 @@ class SyncIntegrations extends Command
                 'b',
                 InputOption::VALUE_OPTIONAL,
                 'The date back to which changes will be synced. Defaults to NOW() - `--time-interval=15`',
-                'now'
+                null
             )
             ->addOption(
                 'end-date',
@@ -219,7 +219,7 @@ class SyncIntegrations extends Command
      */
     private function formatStartDate($startDate, $interval = '15 minutes')
     {
-        return !$startDate || $startDate === 'now' ? date('c', strtotime('-' . $interval)) : date('c', strtotime($startDate));
+        return !$startDate || $startDate === 'now' ? null : date('c', strtotime($startDate));
     }
 
     /**
@@ -301,17 +301,6 @@ class SyncIntegrations extends Command
     {
         $startDate = $this->formatStartDate($input->getOption('start-date'), $input->getOption('time-interval'));
         $endDate = $this->formatEndDate($input->getOption('end-date'));
-
-        if (!$startDate || !$endDate || ($startDate > $endDate)) {
-            throw new \RuntimeException(
-                sprintf(
-                    '<info>Invalid date range given %s -> %s</info>',
-                    $startDate,
-                    $endDate
-                ),
-                255
-            );
-        }
 
         return [
             'start' => $startDate,

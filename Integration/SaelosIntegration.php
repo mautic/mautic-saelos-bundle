@@ -672,6 +672,10 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         $updateData['user_id'] = $ownerName;
                     }
 
+                    if ($activity = $this->getActivityForContact($update['internal_entity_id'])) {
+                        $updateData['activities'] = $activity;
+                    }
+
                     $response = $this->getApiHelper()->updateContact($updateData, $update['integration_entity_id']);
 
                     /** @var IntegrationEntity $contactIntegrationEntity */
@@ -683,7 +687,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     $totalUpdated++;
                 } catch (ApiErrorException $e) {
                     $totalErrors++;
-                    $this->logger->debug(sprintf('SAELOS: Error updating contact: %s. The error was: %s', var_export($update, true), $e->getMessage()));
+                    $e->setContactId($update['internal_entity_id']);
+                    $this->logIntegrationError($e);
                 }
                 finally {
                     $totalToUpdate--;
@@ -733,6 +738,10 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         $createData['user_id'] = $ownerName;
                     }
 
+                    if ($activity = $this->getActivityForContact($create['internal_entity_id'])) {
+                        $createData['activities'] = $activity;
+                    }
+
                     $createdContact = $this->getApiHelper()->pushContact($createData);
 
                     if (isset($createdContact['data']['id'])) {
@@ -748,7 +757,8 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
                 } catch (ApiErrorException $e) {
                     $totalErrors++;
-                    $this->logger->debug(sprintf('SAELOS: Error creating contact: %s. The error was: %s', var_export($create, true), $e->getMessage()));
+                    $e->setContactId($create['internal_entity_id']);
+                    $this->logIntegrationError($e);
                 }
                 finally {
                     $totalToCreate--;
@@ -1154,5 +1164,17 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     public function getLeads($params = [], $query = null, &$executed = null, $result = [], $object = 'contact')
     {
         return $this->pullContacts($params);
+    }
+
+    /**
+     * Fetch activity and format for Saelos
+     *
+     * @param integer $contactId
+     *
+     * @return array
+     */
+    protected function getActivityForContact($contactId)
+    {
+        return [];
     }
 }
