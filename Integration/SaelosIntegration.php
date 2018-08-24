@@ -388,6 +388,10 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         }
                     }
 
+                    if (isset($record['status']) && isset($record['status']['name'])) {
+                        $record['status'] = $record['status']['name'];
+                    }
+
                     $mauticObjectReference = 'lead';
                     $entity = $this->getMauticLead($record, true, null, null, $mauticObjectReference);
                     $detachClass = Lead::class;
