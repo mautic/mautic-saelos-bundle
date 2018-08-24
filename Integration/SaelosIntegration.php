@@ -181,6 +181,17 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
     }
 
     /**
+     * @param       $fieldsToUpdate
+     * @param array $objects
+     *
+     * @return array
+     */
+    protected function cleanPriorityFields($fieldsToUpdate, $objects = null)
+    {
+        return isset($fieldsToUpdate['leadFields']) ? array_values($fieldsToUpdate['leadFields']) : $fieldsToUpdate;;
+    }
+
+    /**
      * @return array
      */
     public function getFormSettings()
@@ -364,8 +375,6 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
             switch ($object) {
                 case 'contact':
-                    unset($record['status']);
-
                     if (count($record['companies'])) {
                         $primaryCompany = array_reduce(
                             $record['companies'],
