@@ -515,6 +515,19 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                     'required' => false,
                 ]
             );
+
+            $builder->add(
+                'activityEvents',
+                'choice',
+                [
+                    'choices' => $this->leadModel->getEngagementTypes(),
+                    'expanded' => true,
+                    'multiple' => true,
+                    'label' => 'mautic.saelos.form.activityEvents',
+                    'label_attr' => ['class' => 'control-label'],
+                    'required' => false,
+                ]
+            );
         }
     }
 

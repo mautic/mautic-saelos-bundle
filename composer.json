@@ -9,6 +9,7 @@
     }
   ],
   "require": {
-    "mautic/composer-plugin": "^1.0"
+    "mautic/composer-plugin": "^1.0",
+    "tightenco/collect": "^5.6"
   }
 }
