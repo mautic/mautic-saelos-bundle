@@ -13,6 +13,7 @@ use MauticPlugin\MauticSaelosBundle\Contracts\CanPushCompanies;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPushContacts;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
+use Tightenco\Collect\Support\Collection;
 use MauticPlugin\MauticCrmBundle\Integration\CrmAbstractIntegration;
 
 class SaelosIntegration extends CrmAbstractIntegration implements CanPullContacts, CanPullCompanies, CanPushContacts, CanPushCompanies
@@ -698,7 +699,7 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         $updateData['user_id'] = $ownerName;
                     }
 
-                    if ($activity = $this->getActivityForContact($update['internal_entity_id'])) {
+                    if ($activity = $this->getActivityForContact($update['internal_entity_id'], $params['start'], $params['end'])) {
                         $updateData['activities'] = $activity;
                     }
 
@@ -764,10 +765,9 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
                         $createData['user_id'] = $ownerName;
                     }
 
-                    if ($activity = $this->getActivityForContact($create['internal_entity_id'])) {
+                    if ($activity = $this->getActivityForContact($create['internal_entity_id'], $params['start'], $params['end'])) {
                         $createData['activities'] = $activity;
                     }
-
                     $createdContact = $this->getApiHelper()->pushContact($createData);
 
                     if (isset($createdContact['data']['id'])) {
@@ -1196,11 +1196,102 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
      * Fetch activity and format for Saelos
      *
      * @param integer $contactId
+     * @param string $start
+     * @param string $end
      *
      * @return array
      */
-    protected function getActivityForContact($contactId)
+    protected function getActivityForContact($contactId, $start = null, $end = null)
     {
-        return [];
+        return $this->getContactData(new \DateTime($start), new \DateTime($end), $contactId);
+    }
+
+    /**
+     * @param \DateTime|null $startDate
+     * @param \DateTime|null $endDate
+     * @param                $contactId
+     *
+     * @return array
+     */
+    private function getContactData(\DateTime $startDate = null, \DateTime $endDate = null, $contactId)
+    {
+        $config = $this->mergeConfigToFeatureSettings();
+
+        if (empty($config['activityEvents'])) {
+            // Inclusive filter meaning we only send events if something is selected
+            return [];
+        }
+
+        $filters = [
+            'search'        => '',
+            'includeEvents' => $config['activityEvents'],
+            'excludeEvents' => [],
+        ];
+
+        if ($startDate) {
+            $filters['dateFrom'] = $startDate;
+            $filters['dateTo']   = $endDate;
+        }
+
+        $includeEvents = Collection::make($filters['includeEvents']);
+        $detailsTypeLookup = Collection::make([
+            'email.read'     => 'App\\EmailActivity',
+            'page.hit'       => 'App\\PageHitActivity',
+            'form.submitted' => 'App\\FormSubmitActivity',
+            'point.gained'   => 'App\\PointChangeActivity',
+        ]);
+
+        $activity = Collection::make();
+        $contact  = $this->em->getReference('MauticLeadBundle:Lead', $contactId);
+        $page     = 1;
+
+        while (true) {
+            $engagements = $this->leadModel->getEngagements($contact, $filters, null, $page, 100, false);
+            $events      = Collection::make($engagements[0]['events']);
+
+            if ($events->count() === 0) {
+                break;
+            }
+
+            $events->filter(function ($event) use ($includeEvents) {
+                // for some reason we're getting events that don't match the filter
+                return $includeEvents->contains($event['event']);
+            })->each(function ($event) use ($activity, $detailsTypeLookup) {
+                $link  = '';
+                $label = $event['eventLabel'] ?? $event['eventType'] ?? 'Unknown';
+
+                if (is_array($label)) {
+                    $link  = $label['href'];
+                    $label = $label['label'];
+                }
+
+                $activityData = [
+                    'details_type' => $detailsTypeLookup->get($event['event'], $event['event']),
+                    'name'         => $label,
+                    'description'  => $link,
+                    'completed'    => 1,
+                    'details'      => [
+                        'created_at' => $event['timestamp']->format('Y-m-d H:i:s')
+                    ]
+                ];
+
+                if ($activityData['details_type'] !== 'none') {
+                    switch($event['event']) {
+                        case 'email.read':
+                            $activityData['details']['content'] = 'Unknown';
+                            break;
+                    }
+                }
+
+                $activity[] = $activityData;
+            });
+
+            ++$page;
+
+            // Lots of entities will be loaded into memory while compiling these events so let's prevent memory overload by clearing the EM
+            $this->em->clear();
+        }
+
+        return $activity->all();
     }
 }

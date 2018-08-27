@@ -60,7 +60,13 @@ class SaelosApi
         $response = $this->integration->makeRequest($url, $parameters, $method, $this->requestSettings);
 
         if ($response->code > 299) {
-            throw new ApiErrorException($response->body, $response->code);
+            $message = $response->body;
+
+            if ($response->code === 404 && $method === 'PATCH') {
+                $message = 'Contact does not exist in Saelos.';
+            }
+
+            throw new ApiErrorException($message, $response->code);
         }
 
         return $this->integration->parseCallbackResponse($response->body);
