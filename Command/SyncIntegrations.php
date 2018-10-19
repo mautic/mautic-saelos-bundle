@@ -136,22 +136,6 @@ class SyncIntegrations extends Command
 
         $integrationObject->setCommandParameters($params);
 
-        if ($integrationObject instanceof CanPullContacts && $integrationObject->shouldPullContacts()) {
-            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.fetch.leads', ['%integration%' => $integration]) . '</info>');
-            $output->writeln('<comment>' . $this->translator->trans('mautic.plugin.command.fetch.leads.starting') . '</comment>');
-
-            list($justUpdated, $justCreated) = $integrationObject->pullContacts($params);
-
-            $output->writeln('');
-            $output->writeln(
-                '<comment>' . $this->translator->trans(
-                    'mautic.plugin.command.fetch.leads.events_executed_breakout',
-                    ['%updated%' => $justUpdated, '%created%' => $justCreated]
-                )
-                    . '</comment>' . "\n"
-            );
-        }
-
         if ($integrationObject instanceof CanPullCompanies && $integrationObject->shouldPullCompanies()) {
             $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.fetch.companies', ['%integration%' => $integration]) . '</info>');
             $output->writeln('<comment>' . $this->translator->trans('mautic.plugin.command.fetch.companies.starting') . '</comment>');
@@ -168,21 +152,17 @@ class SyncIntegrations extends Command
             );
         }
 
-        if ($integrationObject instanceof CanPushContacts && $integrationObject->shouldPushContacts()) {
-            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.pushing.leads', ['%integration%' => $integration]) . '</info>');
+        if ($integrationObject instanceof CanPullContacts && $integrationObject->shouldPullContacts()) {
+            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.fetch.leads', ['%integration%' => $integration]) . '</info>');
+            $output->writeln('<comment>' . $this->translator->trans('mautic.plugin.command.fetch.leads.starting') . '</comment>');
 
-            list($justUpdated, $justCreated, $errored, $ignored) = $integrationObject->pushContacts($params);
+            list($justUpdated, $justCreated) = $integrationObject->pullContacts($params);
 
             $output->writeln('');
             $output->writeln(
                 '<comment>' . $this->translator->trans(
-                    'mautic.plugin.command.fetch.pushing.leads.events_executed',
-                    [
-                        '%updated%' => $justUpdated,
-                        '%created%' => $justCreated,
-                        '%errored%' => $errored,
-                        '%ignored%' => $ignored,
-                    ]
+                    'mautic.plugin.command.fetch.leads.events_executed_breakout',
+                    ['%updated%' => $justUpdated, '%created%' => $justCreated]
                 )
                     . '</comment>' . "\n"
             );
@@ -197,6 +177,26 @@ class SyncIntegrations extends Command
             $output->writeln(
                 '<comment>' . $this->translator->trans(
                     'mautic.plugin.command.fetch.pushing.companies.events_executed',
+                    [
+                        '%updated%' => $justUpdated,
+                        '%created%' => $justCreated,
+                        '%errored%' => $errored,
+                        '%ignored%' => $ignored,
+                    ]
+                )
+                    . '</comment>' . "\n"
+            );
+        }
+
+        if ($integrationObject instanceof CanPushContacts && $integrationObject->shouldPushContacts()) {
+            $output->writeln('<info>' . $this->translator->trans('mautic.plugin.command.pushing.leads', ['%integration%' => $integration]) . '</info>');
+
+            list($justUpdated, $justCreated, $errored, $ignored) = $integrationObject->pushContacts($params);
+
+            $output->writeln('');
+            $output->writeln(
+                '<comment>' . $this->translator->trans(
+                    'mautic.plugin.command.fetch.pushing.leads.events_executed',
                     [
                         '%updated%' => $justUpdated,
                         '%created%' => $justCreated,
