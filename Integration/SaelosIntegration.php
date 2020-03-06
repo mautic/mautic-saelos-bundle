@@ -6,15 +6,16 @@ use Mautic\LeadBundle\Entity\Company;
 use Mautic\LeadBundle\Entity\Lead;
 use Mautic\PluginBundle\Entity\IntegrationEntity;
 use Mautic\PluginBundle\Exception\ApiErrorException;
+use MauticPlugin\MauticCrmBundle\Integration\CrmAbstractIntegration;
 use MauticPlugin\MauticSaelosBundle\Api\SaelosApi;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPullCompanies;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPullContacts;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPushCompanies;
 use MauticPlugin\MauticSaelosBundle\Contracts\CanPushContacts;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Tightenco\Collect\Support\Collection;
-use MauticPlugin\MauticCrmBundle\Integration\CrmAbstractIntegration;
 
 class SaelosIntegration extends CrmAbstractIntegration implements CanPullContacts, CanPullCompanies, CanPushContacts, CanPushCompanies
 {
@@ -486,42 +487,40 @@ class SaelosIntegration extends CrmAbstractIntegration implements CanPullContact
 
             $builder->add(
                 'objects',
-                'choice',
+                ChoiceType::class,
                 [
                     'choices' => [
-                        'contact' => 'mautic.saelos.object.lead',
-                        'company' => 'mautic.saelos.object.company',
+                        'mautic.saelos.object.lead'    => 'contact',
+                        'mautic.saelos.object.company' => 'company',
                     ],
                     'expanded' => true,
                     'multiple' => true,
                     'label' => 'mautic.saelos.form.objects_to_pull_from',
                     'label_attr' => ['class' => ''],
-                    'empty_value' => false,
                     'required' => false,
                 ]
             );
 
             $builder->add(
                 'updateOwner',
-                'choice',
+                ChoiceType::class,
                 [
                     'choices' => [
-                        'updateOwner' => 'mautic.saelos.updateOwner',
+                        'mautic.saelos.updateOwner' => 'updateOwner',
                     ],
                     'expanded' => true,
                     'multiple' => true,
                     'label' => 'mautic.saelos.form.updateOwner',
                     'label_attr' => ['class' => 'control-label'],
-                    'empty_value' => false,
                     'required' => false,
                 ]
             );
 
             $builder->add(
                 'activityEvents',
-                'choice',
+                ChoiceType::class,
                 [
-                    'choices' => $this->leadModel->getEngagementTypes(),
+                    'choices' => array_flip($this->leadModel->getEngagementTypes()),
                     'expanded' => true,
                     'multiple' => true,
                     'label' => 'mautic.saelos.form.activityEvents',
